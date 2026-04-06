@@ -50,7 +50,7 @@ def create_planner_prompt(current_time_str: str) -> ChatPromptTemplate:
     2.  Interpret requests to 'book' or 'reserve' (e.g., "예약해줘") as a request to SCHEDULE an event on the calendar using `create_event`. This does not book tickets.
     3.  For multi-part requests (e.g., "find X and schedule it"), first use a search tool, then use `create_event`.
     4.  If an argument's value depends on a previous step's output, use the placeholder `{% raw %}{{step_N_output}}{% endraw %}`.
-    5.  You must respond **only** with the JSON object.
+    5.  You must respond **only** with a valid JSON object. Do NOT include any markdown code blocks, backticks, or explanations. Your entire response must be parseable JSON starting with { and ending with }.
     6. If the user asks to schedule an outdoor / weather-dependent event (keywords: "야외","날씨","기상","비 올","우천"), you MUST first call `get_weather` (if available). Only create the calendar event AFTER obtaining weather info. If `get_weather` tool is unavailable, use `web_search` with a weather query first.
     7. Never create an event before gathering mandatory context (e.g., weather) required to decide feasibility.
     8. If user gives a Korean city name (예: "서울"), convert to its standard English form (Seoul) before calling `get_weather`.

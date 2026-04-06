@@ -318,7 +318,7 @@ def run_lcel_once(
     print("\n📝 2. PARSED PLAN:\n", json.dumps(plan, indent=2, ensure_ascii=False))
 
     # ── 2) 단계별 실행 (Executor 사용) ───────────────────
-    step_executor = StepExecutor(db, user, tz, _planner_llm, _llm)
+    step_executor = StepExecutor(db, user, tz, _planner_llm)
     step_outputs: dict[str, str] = {}
     logs: list[dict] = []
 

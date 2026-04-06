@@ -8,9 +8,9 @@ class StepExecutor:
     플래너가 생성한 계획의 단일 스텝(step)을 실행하는 역할.
     이전 단계의 결과를 플레이스홀더에 채워넣고 도구를 실행합니다.
     """
-    def __init__(self, db, user, tz, llm, openai_client):
+    def __init__(self, db, user, tz, llm):
         self.tools_by_name = {
-            tool.name: tool for tool in make_toolset(db, user, tz, openai_client, llm)
+            tool.name: tool for tool in make_toolset(db, user, tz, llm)
         }
         self.llm = llm
 
