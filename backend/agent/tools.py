@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from pydantic import BaseModel, Field
 from langchain_core.tools import tool
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_openai import ChatOpenAI
+from langchain_anthropic import ChatAnthropic
 
 # 필요한 모델 및 헬퍼 함수 임포트
 import models
@@ -35,7 +35,7 @@ class ExtractTitleArgs(BaseModel):
     text_to_process: str = Field(..., description="The raw text from a previous search/recommendation step.")
 
 # 도구 세트 생성 함수 (기존 __init__.py에서 이동)
-def make_toolset(db: Session, user: models.User, tz: ZoneInfo, openai_client, llm_instance: ChatOpenAI):
+def make_toolset(db, user, tz, llm_instance: ChatAnthropic):
 
     @tool(args_schema=CreateEventArgs, return_direct=True)
     def create_event(title: str, start: str, end: str) -> str:
@@ -108,21 +108,8 @@ def make_toolset(db: Session, user: models.User, tz: ZoneInfo, openai_client, ll
 
     @tool(args_schema=GenImgArgs, return_direct=True)
     def generate_image(prompt: str) -> str:
-        """DALL-E 3 로 이미지를 생성해 base64 JSON 을 돌려준다."""
-        try:
-            resp = openai_client.images.generate(
-                model="dall-e-3", prompt=prompt, n=1, size="1024x1024"
-            )
-            url = resp.data[0].url
-            orig, thumb = fetch_and_resize(url)
-            payload = {
-                "prompt": prompt,
-                "original_b64": orig,
-                "thumb_b64": thumb,
-            }
-            return json.dumps(payload, ensure_ascii=False)   # ★ 반드시 str!
-        except Exception as e:
-            return json.dumps({"error": f"이미지 생성 실패: {e}"}, ensure_ascii=False)
+        """이미지 생성 기능은 현재 비활성화되어 있습니다."""
+        return json.dumps({"error": "이미지 생성 기능은 현재 지원되지 않습니다."})
 
     @tool(args_schema=RecArgs, return_direct=True)
     def fetch_recommendations(types: str, limit: int = 5) -> str:

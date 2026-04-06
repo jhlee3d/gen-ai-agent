@@ -3,8 +3,7 @@
 import os, json
 import datetime as dt
 from zoneinfo import ZoneInfo 
-from openai import OpenAI
-import httpx
+import anthropic
 from typing import Literal
 from pydantic import BaseModel, constr
 from fastapi import APIRouter, HTTPException, Depends, Query
@@ -31,9 +30,8 @@ except Exception:
 def tz_label(tz: dt.tzinfo) -> str:
     return getattr(tz, "key", None) or tz.tzname(None) or "UTC"
 
-client = OpenAI(
-    api_key=os.getenv("OPENAI_API_KEY"),
-    http_client=httpx.Client(),          # proxies 파라미터 없음
+client = anthropic.Anthropic(
+    api_key=os.getenv("ANTHROPIC_API_KEY"),
 )
 
 router = APIRouter(prefix="/chat", tags=["chat"])
@@ -300,18 +298,15 @@ def summarize_conversation_title(db: Session, convo: models.Conversation):
         "Please create a concise conversation title in Korean, under 30 characters. "
         "If there's no meaningful content, just return something like '메시지 없음'."
     )
-    messages = [
-        {"role": "system", "content": system_prompt},
-        {"role": "user", "content": joined_text}
-    ]
+    
     try:
-        resp = client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=messages,
+        resp = client.messages.create(
+            model="claude-haiku-4-5-20251001",
             max_tokens=30,
-            temperature=0.6
+            system=system_prompt,
+            messages=[{"role": "user", "content": joined_text}]
         )
-        new_title = resp.choices[0].message.content.strip()
+        new_title = resp.content[0].text.strip()
     except:
         new_title = "(Untitled)"
 

@@ -8,17 +8,15 @@ from sqlalchemy.orm import Session
 from database import SessionLocal
 from .auth import get_current_user_token  # JWT 인증 (user_id)
 import models
-from openai import OpenAI
-import httpx
+import anthropic
 import datetime as dt
 from zoneinfo import ZoneInfo
 from .search import google_search_cse
 from utils.personalization import recent_feedback_summaries
 from utils.cse_slim import slim_cse_item
 
-client = OpenAI(
-    api_key=os.getenv("OPENAI_API_KEY"),
-    http_client=httpx.Client(),          # proxies 파라미터 없음
+client = anthropic.Anthropic(
+    api_key=os.getenv("ANTHROPIC_API_KEY"),
 )
 
 router = APIRouter(prefix="/recommend", tags=["recommend"])
@@ -182,22 +180,18 @@ def filter_recent_content_with_llm(
 
     # 3) LLM 호출 - 모델 선택은 중요도/비용에 따라 조정
     try:
-        rsp = client.chat.completions.create(
-            model="gpt-3.5-turbo-1106",  # 필요에 따라 모델 선택
-            temperature=0,
-            response_format={"type": "json_object"},
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": json.dumps(
-                    {"query": user_query, "content_type": content_type, "results": enhanced_items},
-                    ensure_ascii=False
-                )}
-            ],
-            max_tokens=512  # 응답 크기 확대
+        rsp = client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=512,
+            system=system_prompt,
+            messages=[{"role": "user", "content": json.dumps(
+                {"query": user_query, "content_type": content_type, "results": enhanced_items},
+                ensure_ascii=False
+         )}]
         )
+        raw = json.loads(rsp.content[0].text)
 
         # 4) 결과 파싱 및 신뢰도 처리
-        raw = json.loads(rsp.choices[0].message.content)
         keep_idx = raw.get("keep", [])
         confidence_scores = raw.get("confidence", [1.0] * len(keep_idx))  # 기본값은 1.0
         

@@ -6,13 +6,11 @@ from typing import List, Dict, Any, Literal
 from zoneinfo import ZoneInfo
 
 from sqlalchemy.orm import Session
-from openai import OpenAI, AsyncOpenAI
-import httpx
 
-from langchain_openai import ChatOpenAI
+from langchain_anthropic import ChatAnthropic
 from langchain.memory import ConversationTokenBufferMemory
 from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
-from langchain.agents import create_openai_tools_agent, AgentExecutor
+from langchain.agents import create_tool_calling_agent, AgentExecutor
 from langchain.schema import SystemMessage
 from langchain_core.tools import BaseTool
 from langchain_core.tools import tool  # ⬅️ 데코레이터
@@ -27,46 +25,16 @@ from routers.gcal import build_gcal_service
 from routers.search import google_search_cse
 from utils.image import fetch_and_resize
 
-# ─────────────────────────── OpenAI 클라이언트
-_sync_root = OpenAI(
-    api_key=os.getenv("OPENAI_API_KEY"),
-    http_client=httpx.Client(
-        timeout=30.0,
-        limits=httpx.Limits(max_keepalive_connections=20),
-    ),
-)
-_async_root = AsyncOpenAI(
-    api_key=os.getenv("OPENAI_API_KEY"),
-    http_client=httpx.AsyncClient(
-        timeout=30.0,
-        limits=httpx.Limits(max_keepalive_connections=20),
-    ),
-)
-
-
-class _SyncChat:
-    def create(self, **kwargs):
-        return _sync_root.chat.completions.create(**kwargs)
-
-
-class _AsyncChat:
-    async def create(self, **kwargs):
-        return await _async_root.chat.completions.create(**kwargs)
-
 # 일반 에이전트용 LLM
-_llm = ChatOpenAI(
-    model="gpt-3.5-turbo",
+_llm = ChatAnthropic (
+    model="claude-sonnet-4-5",
     temperature=0.2,
-    client=_SyncChat(),
-    async_client=_AsyncChat(),
 )
 
 # ✅ [수정] 플래너 전용 LLM을 여기서 중앙 관리합니다.
-_planner_llm = ChatOpenAI(
-    model="gpt-4o-mini",
+_planner_llm = ChatAnthropic(
+    model="claude-haiku-4-5-20251001",
     temperature=0.2,
-    client=_SyncChat(),      # 올바르게 설정된 클라이언트 재사용
-    async_client=_AsyncChat(), # 올바르게 설정된 클라이언트 재사용
 )
 
 # ── pydantic 스키마 ───────────────────────────
@@ -239,11 +207,11 @@ def build_agent(
          else memory.chat_memory.add_ai_message)(text)
 
     # 2) tools & prompt
-    tools  = make_toolset(db, user, tz, _sync_root, _llm)
+    tools  = make_toolset(db, user, tz, _llm)
     prompt = build_prompt(tools, tz)
 
     # 3) agent → executor
-    agent = create_openai_tools_agent(_llm, tools, prompt)
+    agent = create_tool_calling_agent(_llm, tools, prompt)
     exec_   = AgentExecutor(
         agent   = agent,
         tools   = tools,
@@ -350,8 +318,7 @@ def run_lcel_once(
     print("\n📝 2. PARSED PLAN:\n", json.dumps(plan, indent=2, ensure_ascii=False))
 
     # ── 2) 단계별 실행 (Executor 사용) ───────────────────
-    step_executor = StepExecutor(db, user, tz, _planner_llm, _sync_root)
-
+    step_executor = StepExecutor(db, user, tz, _planner_llm, _llm)
     step_outputs: dict[str, str] = {}
     logs: list[dict] = []
 

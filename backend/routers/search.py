@@ -3,8 +3,7 @@
 import os
 import json
 import requests
-from openai import OpenAI
-import httpx
+import anthropic
 from typing import List
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
@@ -17,9 +16,8 @@ import models
 
 router = APIRouter(prefix="/search", tags=["search"])
 
-client = OpenAI(
-    api_key=os.getenv("OPENAI_API_KEY"),
-    http_client=httpx.Client(),          # proxies 파라미터 없음
+client = anthropic.Anthropic(
+    api_key=os.getenv("ANTHROPIC_API_KEY"),
 )
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY", "YOUR_GOOGLE_API_KEY_HERE")
 GOOGLE_CSE_ID = os.getenv("GOOGLE_CSE_ID", "YOUR_GOOGLE_CSE_ID_HERE")
@@ -182,11 +180,13 @@ def search_and_summarize(
     print(messages)
 
     try:
-        rsp = client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=messages
+        rsp = client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=1000,
+            system=messages[0]["content"],
+            messages=messages[1:]
         )
-        final_text = rsp.choices[0].message.content
+        final_text = rsp.content[0].text
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"OpenAI error: {str(e)}")
 

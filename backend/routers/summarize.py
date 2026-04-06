@@ -2,8 +2,7 @@
 
 import os
 import io
-import httpx
-from openai import OpenAI
+import anthropic
 import pdfplumber
 from fastapi import APIRouter, HTTPException, Depends, UploadFile, File, Form
 from sqlalchemy.orm import Session
@@ -13,9 +12,8 @@ import models
 
 router = APIRouter(prefix="/summarize", tags=["summarize"])
 
-client = OpenAI(
-    api_key=os.getenv("OPENAI_API_KEY"),
-    http_client=httpx.Client(),          # proxies 파라미터 없음
+client = anthropic.Anthropic(
+    api_key=os.getenv("ANTHROPIC_API_KEY"),
 )
 
 def get_db():
@@ -106,17 +104,14 @@ async def summarize_file(
         "Please keep it concise and clear in Korean."
     )
 
-    messages = [
-        {"role": "system", "content": system_prompt},
-        {"role": "user", "content": content_text[:8000]}  # 8K substring (임시)
-    ]
-
     try:
-        rsp = client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=messages
+        rsp = client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=1000,
+            system=system_prompt,
+            messages=[{"role": "user", "content": content_text[:8000]}]
         )
-        summary = rsp.choices[0].message.content
+        summary = rsp.content[0].text
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"OpenAI error: {str(e)}")
 
